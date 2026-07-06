@@ -18,7 +18,7 @@
     .btn-quick { background: #e0e0e0; color: #333; }
     .btn-save { background: #0066ff; color: white; }
     .preset-btn { background: #28a745; color: white; font-size: 14px; }
-    footer { text-align: center; padding: 15px; color: #666; font-size: 14px; }
+    .danger { background: #dc3545; color: white; }
   </style>
 </head>
 <body>
@@ -33,11 +33,16 @@
 
       <div class="controls">
         <label>水印文字（支援多行）</label>
-        <textarea id="text" rows="3">© 你的名字</textarea>
+        <textarea id="text" rows="3"></textarea>
+        
+        <div style="display:flex; gap:8px;">
+          <button id="addToQuick" style="flex:1; background:#0066ff; color:white;">➕ 加到快速輸入文字</button>
+          <button id="clearText" class="danger" style="flex:1;">🗑 全部刪除</button>
+        </div>
 
-        <!-- 新增：快速輸入文字 -->
+        <!-- 快速輸入文字（用戶自定義） -->
         <label>快速輸入文字</label>
-        <div id="quickTextButtons" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
+        <div id="quickTextButtons" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:15px;"></div>
 
         <label>快速加入日期時間</label>
         <div>
@@ -84,28 +89,24 @@
           <div id="savedPresets" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
         </div>
 
-        <label>旋轉角度 <span id="rotationValue">0</span>°</label>
-        <input type="range" id="rotation" min="-45" max="45" value="0">
-
-        <button class="btn-primary" id="applyBtn" style="width:100%;">套用水印（預覽）</button>
+        <button class="btn-primary" id="applyBtn" style="width:100%; margin-top:15px;">套用水印（預覽）</button>
         <button class="btn-success" id="downloadBtn" style="width:100%;">💾 下載水印後圖片</button>
       </div>
     </div>
-    <footer>純前端工具 • 已優化反應速度</footer>
+    <footer>純前端工具 • 已優化</footer>
   </div>
 
   <script>
     let originalImage = null;
     let currentWatermarked = null;
     let customPresets = JSON.parse(localStorage.getItem('customWatermarkPresets')) || [];
-    let quickTexts = ["© 你的名字", "Confidential", "Draft", "2026", "Only For Review"];
+    let quickTexts = JSON.parse(localStorage.getItem('quickTexts')) || [];
 
     const els = {
       text: document.getElementById('text'),
       size: document.getElementById('size'),
       color: document.getElementById('color'),
       opacity: document.getElementById('opacity'),
-      rotation: document.getElementById('rotation'),
       positionMode: document.getElementById('positionMode'),
       customX: document.getElementById('customX'),
       customY: document.getElementById('customY'),
@@ -113,13 +114,13 @@
       quickTextButtons: document.getElementById('quickTextButtons')
     };
 
-    // 渲染快速文字按鈕
+    // 渲染快速文字
     function renderQuickTexts() {
       els.quickTextButtons.innerHTML = '';
-      quickTexts.forEach(txt => {
+      quickTexts.forEach((txt, i) => {
         const btn = document.createElement('button');
         btn.className = 'btn-quick';
-        btn.textContent = txt;
+        btn.textContent = txt.length > 15 ? txt.substring(0,15)+'...' : txt;
         btn.onclick = () => {
           els.text.value = txt;
           applyWatermark();
@@ -127,6 +128,26 @@
         els.quickTextButtons.appendChild(btn);
       });
     }
+
+    // 加到快速輸入
+    document.getElementById('addToQuick').addEventListener('click', () => {
+      const txt = els.text.value.trim();
+      if (!txt) return alert("請先輸入文字");
+      if (quickTexts.includes(txt)) return alert("已經存在");
+      
+      quickTexts.push(txt);
+      localStorage.setItem('quickTexts', JSON.stringify(quickTexts));
+      renderQuickTexts();
+      alert("已加入快速輸入文字");
+    });
+
+    // 全部刪除
+    document.getElementById('clearText').addEventListener('click', () => {
+      if (confirm("確定要全部刪除文字框內容？")) {
+        els.text.value = '';
+        applyWatermark();
+      }
+    });
 
     // 位置模式切換
     els.positionMode.addEventListener('change', () => {
@@ -139,14 +160,13 @@
       const name = prompt("請輸入自定義預設名稱：", "我的位置 " + (customPresets.length + 1));
       if (!name) return;
       const preset = {
-        name: name,
+        name, 
         x: parseInt(els.customX.value) || 100,
         y: parseInt(els.customY.value) || 100,
         text: els.text.value,
         size: els.size.value,
         color: els.color.value,
-        opacity: els.opacity.value,
-        rotation: els.rotation.value
+        opacity: els.opacity.value
       };
       customPresets.push(preset);
       localStorage.setItem('customWatermarkPresets', JSON.stringify(customPresets));
@@ -167,14 +187,13 @@
           els.size.value = p.size || 42;
           els.color.value = p.color || '#ffffff';
           els.opacity.value = p.opacity || 70;
-          els.rotation.value = p.rotation || 0;
           applyWatermark();
         };
         els.savedPresets.appendChild(btn);
       });
     }
 
-    // 日期功能
+    // 日期按鈕
     function getDate() {
       const n = new Date();
       return { yy: String(n.getFullYear()).slice(2), mm: String(n.getMonth()+1).padStart(2,'0'), dd: String(n.getDate()).padStart(2,'0'), hour: String(n.getHours()).padStart(2,'0') };
@@ -183,14 +202,7 @@
     document.getElementById('btnFullDate').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.mm}${d.dd} ${d.hour}시`; applyWatermark(); };
     document.getElementById('btnCustom').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.dd}${d.mm} ${d.hour}시`; applyWatermark(); };
 
-    // 優化：Debounce 防止卡頓
-    let timeout;
-    function debouncedApply() {
-      clearTimeout(timeout);
-      timeout = setTimeout(applyWatermark, 150);
-    }
-
-    // 水印核心
+    // 水印
     document.getElementById('upload').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -222,9 +234,7 @@
       let x = parseInt(els.customX.value) || 100;
       let y = parseInt(els.customY.value) || 100;
 
-      lines.forEach((line, i) => {
-        ctx.fillText(line, x, y + i * lineHeight);
-      });
+      lines.forEach((line, i) => ctx.fillText(line, x, y + i * lineHeight));
 
       currentWatermarked = canvas.toDataURL('image/jpeg', 0.92);
       document.getElementById('preview').src = currentWatermarked;
@@ -240,9 +250,9 @@
       }
     });
 
-    // 即時更新（已優化）
+    // 即時更新
     document.querySelectorAll('input, select, textarea').forEach(el => {
-      el.addEventListener('input', debouncedApply);
+      el.addEventListener('input', () => { if (originalImage) applyWatermark(); });
     });
 
     // 初始化
