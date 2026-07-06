@@ -2,102 +2,176 @@
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8">
-  <title>水印工具 - 新測試版</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>圖片加水印工具</title>
   <style>
-    body { font-family: system-ui; margin: 20px; background: #f0f0f0; }
-    .box { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-    button { padding: 10px 15px; margin: 5px; }
-    .preset-item { padding: 10px; background: #f9f9f9; margin: 8px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+    body { font-family: system-ui, sans-serif; margin:0; padding:20px; background: linear-gradient(135deg, #667eea, #764ba2); }
+    .container { max-width: 1100px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }
+    header { background: #222; color: white; padding: 20px; text-align: center; }
+    .main { padding: 25px; display: grid; grid-template-columns: 1fr 460px; gap: 25px; }
+    .preview { max-width: 100%; max-height: 550px; border: 3px solid #eee; border-radius: 12px; }
+    .controls { background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
+    label { display: block; margin: 12px 0 6px; font-weight: 600; }
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
+    input[type="range"] { width: 100%; }
+    button { padding: 10px 14px; margin: 5px 3px; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; }
+    .btn-primary { background: #0066ff; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .preset-item { padding: 10px; background: white; margin: 6px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #ddd; }
+    .status { color: green; font-weight: bold; margin: 8px 0; }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>圖片加水印 - 測試版</h1>
-    <input type="file" id="upload" accept="image/*"><br><br>
-    <img id="preview" style="max-width:100%; border:2px solid #ccc;" alt="預覽">
+  <div class="container">
+    <header><h1>📸 圖片加水印工具</h1><p>自定義預設已修復</p></header>
 
-    <h3>水印文字</h3>
-    <textarea id="text" rows="3" style="width:100%;">© 測試</textarea>
+    <div class="main">
+      <div>
+        <input type="file" id="upload" accept="image/*" style="margin-bottom:15px;">
+        <img id="preview" class="preview" src="" alt="預覽">
+      </div>
 
-    <h3>自定義樣式預設</h3>
-    <input type="text" id="presetName" placeholder="預設名稱" style="width:200px;">
-    <button id="savePreset">儲存目前設定</button>
-    <div id="presetList"></div>
+      <div class="controls">
+        <label>水印文字（支援多行）</label>
+        <textarea id="text" rows="3">© 你的名字</textarea>
 
-    <button id="applyBtn">套用水印</button>
-    <button id="downloadBtn">下載</button>
+        <label>字體大小 <span id="sizeValue">42</span>px</label>
+        <input type="range" id="size" min="12" max="150" value="42">
+
+        <label>文字顏色</label><input type="color" id="color" value="#ffffff">
+
+        <label>透明度 <span id="opacityValue">70</span>%</label>
+        <input type="range" id="opacity" min="10" max="100" value="70">
+
+        <!-- 位置設定略... -->
+        <label>位置模式</label>
+        <select id="positionMode">
+          <option value="preset">預設位置</option>
+          <option value="custom">自定義座標</option>
+        </select>
+
+        <div id="customGroup" style="display:none;">
+          <label>X 座標</label><input type="number" id="customX" value="100">
+          <label>Y 座標</label><input type="number" id="customY" value="100">
+        </div>
+
+        <!-- 自定義預設 -->
+        <label>自定義樣式預設</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="presetName" placeholder="輸入預設名稱" style="flex:1;">
+          <button class="btn-primary" id="savePreset">💾 儲存目前設定</button>
+        </div>
+        <div id="status" class="status"></div>
+        <div id="presetList"></div>
+
+        <button class="btn-primary" id="applyBtn">套用水印</button>
+        <button class="btn-success" id="downloadBtn">💾 下載圖片</button>
+      </div>
+    </div>
   </div>
 
   <script>
     let originalImage = null;
     let currentWatermarked = null;
-    let presets = JSON.parse(localStorage.getItem('wmPresets')) || [];
+    let presets = [];
 
-    const upload = document.getElementById('upload');
-    const preview = document.getElementById('preview');
-    const textArea = document.getElementById('text');
-    const presetName = document.getElementById('presetName');
-    const presetList = document.getElementById('presetList');
-    const saveBtn = document.getElementById('savePreset');
-    const applyBtn = document.getElementById('applyBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
+    // 載入已存預設
+    function loadPresets() {
+      const saved = localStorage.getItem('watermarkPresets');
+      presets = saved ? JSON.parse(saved) : [];
+      renderPresets();
+    }
+
+    function savePresets() {
+      localStorage.setItem('watermarkPresets', JSON.stringify(presets));
+      renderPresets();
+    }
 
     function renderPresets() {
-      presetList.innerHTML = '';
+      const list = document.getElementById('presetList');
+      list.innerHTML = '';
       presets.forEach((p, i) => {
         const div = document.createElement('div');
         div.className = 'preset-item';
         div.innerHTML = `
-          ${p.name}
+          <strong>${p.name}</strong>
           <div>
-            <button data-i="${i}" class="load">載入</button>
-            <button data-i="${i}" class="rename">改名</button>
-            <button data-i="${i}" class="delete">刪除</button>
+            <button data-index="${i}" class="load">載入</button>
+            <button data-index="${i}" class="rename">改名</button>
+            <button data-index="${i}" class="delete">刪除</button>
           </div>
         `;
-        presetList.appendChild(div);
+        list.appendChild(div);
       });
     }
 
-    saveBtn.addEventListener('click', () => {
-      const name = presetName.value.trim() || `預設 ${presets.length+1}`;
-      presets.push({
+    // 儲存按鈕
+    document.getElementById('savePreset').addEventListener('click', () => {
+      const nameInput = document.getElementById('presetName');
+      let name = nameInput.value.trim();
+      if (!name) name = `預設 ${presets.length + 1}`;
+
+      const presetData = {
         name: name,
-        text: textArea.value
-      });
-      localStorage.setItem('wmPresets', JSON.stringify(presets));
-      renderPresets();
-      presetName.value = '';
+        text: document.getElementById('text').value,
+        size: document.getElementById('size').value,
+        color: document.getElementById('color').value,
+        opacity: document.getElementById('opacity').value,
+        positionMode: document.getElementById('positionMode').value,
+        customX: document.getElementById('customX').value,
+        customY: document.getElementById('customY').value
+      };
+
+      presets.push(presetData);
+      savePresets();
+
+      const status = document.getElementById('status');
+      status.textContent = `✅ 已儲存：「${name}」`;
+      setTimeout(() => status.textContent = '', 3000);
+
+      nameInput.value = '';
     });
 
-    presetList.addEventListener('click', e => {
-      const i = e.target.dataset.i;
-      if (!i) return;
-      const idx = parseInt(i);
+    // 預設列表點擊事件
+    document.getElementById('presetList').addEventListener('click', (e) => {
+      const index = e.target.dataset.index;
+      if (index === undefined) return;
+      const i = parseInt(index);
 
       if (e.target.classList.contains('load')) {
-        textArea.value = presets[idx].text;
+        const p = presets[i];
+        document.getElementById('text').value = p.text || '';
+        document.getElementById('size').value = p.size || 42;
+        document.getElementById('color').value = p.color || '#ffffff';
+        document.getElementById('opacity').value = p.opacity || 70;
+        document.getElementById('positionMode').value = p.positionMode || 'preset';
+        if (p.customX) document.getElementById('customX').value = p.customX;
+        if (p.customY) document.getElementById('customY').value = p.customY;
         applyWatermark();
-      } else if (e.target.classList.contains('rename')) {
-        const newName = prompt("新名稱", presets[idx].name);
-        if (newName) presets[idx].name = newName;
-        localStorage.setItem('wmPresets', JSON.stringify(presets));
-        renderPresets();
-      } else if (e.target.classList.contains('delete')) {
-        if (confirm("確定刪除？")) {
-          presets.splice(idx, 1);
-          localStorage.setItem('wmPresets', JSON.stringify(presets));
-          renderPresets();
+      } 
+      else if (e.target.classList.contains('rename')) {
+        const newName = prompt("新預設名稱：", presets[i].name);
+        if (newName && newName.trim()) {
+          presets[i].name = newName.trim();
+          savePresets();
+        }
+      } 
+      else if (e.target.classList.contains('delete')) {
+        if (confirm(`刪除「${presets[i].name}」？`)) {
+          presets.splice(i, 1);
+          savePresets();
         }
       }
     });
 
-    upload.addEventListener('change', e => {
+    // 其他功能（簡化版）
+    document.getElementById('upload').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = ev => {
-        preview.src = ev.target.result;
+      reader.onload = function(ev) {
+        const img = document.getElementById('preview');
+        img.src = ev.target.result;
         originalImage = new Image();
         originalImage.onload = applyWatermark;
         originalImage.src = ev.target.result;
@@ -107,28 +181,25 @@
 
     function applyWatermark() {
       if (!originalImage) return;
+      // 簡化水印繪製
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       canvas.width = originalImage.width;
       canvas.height = originalImage.height;
       ctx.drawImage(originalImage, 0, 0);
 
-      const lines = textArea.value.split('\n');
-      ctx.font = "bold 50px Arial";
-      ctx.fillStyle = "#ffffff";
-      ctx.globalAlpha = 0.8;
+      const text = document.getElementById('text').value || 'Watermark';
+      ctx.font = `bold 50px Arial`;
+      ctx.fillStyle = document.getElementById('color').value;
+      ctx.globalAlpha = document.getElementById('opacity').value / 100;
+      ctx.fillText(text, 80, 120);
 
-      lines.forEach((line, i) => {
-        ctx.fillText(line, 50, 100 + i*70);
-      });
-
-      currentWatermarked = canvas.toDataURL('image/jpeg', 0.9);
-      preview.src = currentWatermarked;
+      currentWatermarked = canvas.toDataURL('image/jpeg', 0.92);
+      document.getElementById('preview').src = currentWatermarked;
     }
 
-    applyBtn.addEventListener('click', applyWatermark);
-
-    downloadBtn.addEventListener('click', () => {
+    document.getElementById('applyBtn').addEventListener('click', applyWatermark);
+    document.getElementById('downloadBtn').addEventListener('click', () => {
       if (currentWatermarked) {
         const a = document.createElement('a');
         a.href = currentWatermarked;
@@ -137,7 +208,8 @@
       }
     });
 
-    renderPresets();
+    // 初始化
+    loadPresets();
   </script>
 </body>
 </html>
