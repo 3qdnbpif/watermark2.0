@@ -18,7 +18,7 @@
     .btn-quick { background: #e0e0e0; color: #333; }
     .btn-save { background: #0066ff; color: white; }
     .preset-btn { background: #28a745; color: white; font-size: 14px; }
-    .danger { background: #dc3545; color: white; }
+    .align-btn { font-size: 18px; width: 40px; }
   </style>
 </head>
 <body>
@@ -36,11 +36,10 @@
         <textarea id="text" rows="3"></textarea>
         
         <div style="display:flex; gap:8px;">
-          <button id="addToQuick" style="flex:1; background:#0066ff; color:white;">➕ 加到快速輸入文字</button>
-          <button id="clearText" class="danger" style="flex:1;">🗑 全部刪除</button>
+          <button id="addToQuick" style="flex:1; background:#0066ff; color:white;">➕ 加到快速輸入</button>
+          <button id="clearText" style="flex:1; background:#dc3545; color:white;">🗑 全部刪除</button>
         </div>
 
-        <!-- 快速輸入文字（用戶自定義） -->
         <label>快速輸入文字</label>
         <div id="quickTextButtons" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:15px;"></div>
 
@@ -49,6 +48,14 @@
           <button class="btn-quick" id="btnYYMMDD">YYMMDD</button>
           <button class="btn-quick" id="btnFullDate">YYMMDD h시</button>
           <button class="btn-quick" id="btnCustom">yyddmm h시</button>
+        </div>
+
+        <!-- 新增：對齊方式 -->
+        <label>對齊方式</label>
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <button id="alignLeft" class="align-btn">↤</button>
+          <button id="alignCenter" class="align-btn">↔</button>
+          <button id="alignRight" class="align-btn">↦</button>
         </div>
 
         <label>字體大小 <span id="sizeValue">42</span>px</label>
@@ -81,7 +88,7 @@
             <div><label>X 座標 (px)</label><input type="number" id="customX" value="100"></div>
             <div><label>Y 座標 (px)</label><input type="number" id="customY" value="100"></div>
           </div>
-          <button class="btn-save" id="saveCustomPreset" style="width:100%; margin-top:12px; padding:12px;">💾 儲存目前設定</button>
+          <button class="btn-save" id="saveCustomPreset" style="width:100%; margin-top:12px; padding:12px;">💾 儲存目前設定（只存座標）</button>
         </div>
 
         <div id="savedPresetsArea" style="margin-top:15px;">
@@ -93,7 +100,7 @@
         <button class="btn-success" id="downloadBtn" style="width:100%;">💾 下載水印後圖片</button>
       </div>
     </div>
-    <footer>純前端工具 • 已優化</footer>
+    <footer>純前端工具</footer>
   </div>
 
   <script>
@@ -105,8 +112,10 @@
     const els = {
       text: document.getElementById('text'),
       size: document.getElementById('size'),
+      sizeValue: document.getElementById('sizeValue'),
       color: document.getElementById('color'),
       opacity: document.getElementById('opacity'),
+      opacityValue: document.getElementById('opacityValue'),
       positionMode: document.getElementById('positionMode'),
       customX: document.getElementById('customX'),
       customY: document.getElementById('customY'),
@@ -114,64 +123,60 @@
       quickTextButtons: document.getElementById('quickTextButtons')
     };
 
-    // 渲染快速文字
+    // 更新數值顯示
+    els.size.oninput = () => els.sizeValue.textContent = els.size.value;
+    els.opacity.oninput = () => els.opacityValue.textContent = els.opacity.value;
+
+    // 對齊功能
+    let currentAlign = 'left';
+    document.getElementById('alignLeft').onclick = () => { currentAlign = 'left'; applyWatermark(); };
+    document.getElementById('alignCenter').onclick = () => { currentAlign = 'center'; applyWatermark(); };
+    document.getElementById('alignRight').onclick = () => { currentAlign = 'right'; applyWatermark(); };
+
+    // 快速文字
     function renderQuickTexts() {
       els.quickTextButtons.innerHTML = '';
-      quickTexts.forEach((txt, i) => {
+      quickTexts.forEach(txt => {
         const btn = document.createElement('button');
         btn.className = 'btn-quick';
-        btn.textContent = txt.length > 15 ? txt.substring(0,15)+'...' : txt;
-        btn.onclick = () => {
-          els.text.value = txt;
-          applyWatermark();
-        };
+        btn.textContent = txt.length > 12 ? txt.substring(0,12)+'...' : txt;
+        btn.onclick = () => { els.text.value = txt; applyWatermark(); };
         els.quickTextButtons.appendChild(btn);
       });
     }
 
-    // 加到快速輸入
     document.getElementById('addToQuick').addEventListener('click', () => {
       const txt = els.text.value.trim();
-      if (!txt) return alert("請先輸入文字");
-      if (quickTexts.includes(txt)) return alert("已經存在");
-      
+      if (!txt || quickTexts.includes(txt)) return;
       quickTexts.push(txt);
       localStorage.setItem('quickTexts', JSON.stringify(quickTexts));
       renderQuickTexts();
-      alert("已加入快速輸入文字");
     });
 
-    // 全部刪除
     document.getElementById('clearText').addEventListener('click', () => {
-      if (confirm("確定要全部刪除文字框內容？")) {
+      if (confirm("確定清除所有文字？")) {
         els.text.value = '';
         applyWatermark();
       }
     });
 
-    // 位置模式切換
+    // 位置模式
     els.positionMode.addEventListener('change', () => {
       document.getElementById('presetGroup').style.display = els.positionMode.value === 'preset' ? 'block' : 'none';
       document.getElementById('customGroup').style.display = els.positionMode.value === 'custom' ? 'block' : 'none';
     });
 
-    // 儲存自定義座標
+    // 儲存只存座標
     document.getElementById('saveCustomPreset').addEventListener('click', () => {
-      const name = prompt("請輸入自定義預設名稱：", "我的位置 " + (customPresets.length + 1));
+      const name = prompt("預設名稱：", "位置 " + (customPresets.length + 1));
       if (!name) return;
-      const preset = {
-        name, 
+      customPresets.push({
+        name,
         x: parseInt(els.customX.value) || 100,
-        y: parseInt(els.customY.value) || 100,
-        text: els.text.value,
-        size: els.size.value,
-        color: els.color.value,
-        opacity: els.opacity.value
-      };
-      customPresets.push(preset);
+        y: parseInt(els.customY.value) || 100
+      });
       localStorage.setItem('customWatermarkPresets', JSON.stringify(customPresets));
       renderSavedPresets();
-      alert(`✅ 已儲存：「${name}」`);
     });
 
     function renderSavedPresets() {
@@ -183,17 +188,13 @@
         btn.onclick = () => {
           els.customX.value = p.x;
           els.customY.value = p.y;
-          els.text.value = p.text || els.text.value;
-          els.size.value = p.size || 42;
-          els.color.value = p.color || '#ffffff';
-          els.opacity.value = p.opacity || 70;
           applyWatermark();
         };
         els.savedPresets.appendChild(btn);
       });
     }
 
-    // 日期按鈕
+    // 日期
     function getDate() {
       const n = new Date();
       return { yy: String(n.getFullYear()).slice(2), mm: String(n.getMonth()+1).padStart(2,'0'), dd: String(n.getDate()).padStart(2,'0'), hour: String(n.getHours()).padStart(2,'0') };
@@ -202,7 +203,7 @@
     document.getElementById('btnFullDate').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.mm}${d.dd} ${d.hour}시`; applyWatermark(); };
     document.getElementById('btnCustom').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.dd}${d.mm} ${d.hour}시`; applyWatermark(); };
 
-    // 水印
+    // 水印核心
     document.getElementById('upload').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -231,10 +232,16 @@
       ctx.globalAlpha = parseInt(els.opacity.value)/100;
 
       const lineHeight = fontSize * 1.3;
-      let x = parseInt(els.customX.value) || 100;
+      let baseX = parseInt(els.customX.value) || 100;
       let y = parseInt(els.customY.value) || 100;
 
-      lines.forEach((line, i) => ctx.fillText(line, x, y + i * lineHeight));
+      lines.forEach((line, i) => {
+        let x = baseX;
+        const textWidth = ctx.measureText(line).width;
+        if (currentAlign === 'center') x = baseX - textWidth / 2;
+        else if (currentAlign === 'right') x = baseX - textWidth;
+        ctx.fillText(line, x, y + i * lineHeight);
+      });
 
       currentWatermarked = canvas.toDataURL('image/jpeg', 0.92);
       document.getElementById('preview').src = currentWatermarked;
