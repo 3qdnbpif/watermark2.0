@@ -2,248 +2,102 @@
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>圖片加水印工具</title>
+  <title>水印工具 - 新測試版</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; margin:0; padding:20px; background: linear-gradient(135deg, #667eea, #764ba2); }
-    .container { max-width: 1100px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }
-    header { background: #222; color: white; padding: 20px; text-align: center; }
-    .main { padding: 25px; display: grid; grid-template-columns: 1fr 460px; gap: 25px; }
-    .preview { max-width: 100%; max-height: 550px; border: 3px solid #eee; border-radius: 12px; }
-    .controls { background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
-    label { display: block; margin: 12px 0 6px; font-weight: 600; }
-    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
-    input[type="range"] { width: 100%; }
-    button { padding: 10px 14px; margin: 5px 3px; border: none; border-radius: 6px; cursor: pointer; }
-    .btn-quick, .preset-btn { background: #e0e0e0; color: #333; }
-    .btn-quick:hover, .preset-btn:hover { background: #ccc; }
-    .btn-primary { background: #0066ff; color: white; }
-    .btn-success { background: #28a745; color: white; }
-    .preset-list { max-height: 220px; overflow-y: auto; margin: 8px 0; }
-    .preset-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; margin: 4px 0; border-radius: 6px; }
-    footer { text-align: center; padding: 15px; color: #666; }
+    body { font-family: system-ui; margin: 20px; background: #f0f0f0; }
+    .box { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    button { padding: 10px 15px; margin: 5px; }
+    .preset-item { padding: 10px; background: #f9f9f9; margin: 8px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header><h1>📸 圖片加水印工具</h1><p>多行文字 + 日期 + 自定義預設</p></header>
+  <div class="box">
+    <h1>圖片加水印 - 測試版</h1>
+    <input type="file" id="upload" accept="image/*"><br><br>
+    <img id="preview" style="max-width:100%; border:2px solid #ccc;" alt="預覽">
 
-    <div class="main">
-      <div>
-        <input type="file" id="upload" accept="image/*" style="margin-bottom:15px;">
-        <img id="preview" class="preview" src="" alt="預覽">
-      </div>
+    <h3>水印文字</h3>
+    <textarea id="text" rows="3" style="width:100%;">© 測試</textarea>
 
-      <div class="controls">
-        <label>水印文字（支援多行）</label>
-        <textarea id="text" rows="3"></textarea>
+    <h3>自定義樣式預設</h3>
+    <input type="text" id="presetName" placeholder="預設名稱" style="width:200px;">
+    <button id="savePreset">儲存目前設定</button>
+    <div id="presetList"></div>
 
-        <!-- 快速日期 -->
-        <label>快速日期</label>
-        <div>
-          <button class="btn-quick" id="btnYYMMDD">YYMMDD</button>
-          <button class="btn-quick" id="btnFullDate">YYMMDD h시</button>
-          <button class="btn-quick" id="btnCustom">yyddmm h시</button>
-        </div>
-
-        <label>字體大小 <span id="sizeValue">42</span>px</label>
-        <input type="range" id="size" min="12" max="150" value="42">
-
-        <label>文字顏色</label><input type="color" id="color" value="#ffffff">
-
-        <label>透明度 <span id="opacityValue">70</span>%</label>
-        <input type="range" id="opacity" min="10" max="100" value="70">
-
-        <label>位置模式</label>
-        <select id="positionMode">
-          <option value="preset">預設位置</option>
-          <option value="custom">自定義座標</option>
-        </select>
-
-        <div id="presetGroup">
-          <label>預設位置</label>
-          <select id="presetPosition">
-            <option value="bottom-right">右下角</option>
-            <option value="bottom-left">左下角</option>
-            <option value="top-right">右上角</option>
-            <option value="top-left">左上角</option>
-            <option value="center">正中間</option>
-          </select>
-        </div>
-
-        <div id="customGroup" style="display:none;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div><label>X 座標</label><input type="number" id="customX" value="100"></div>
-            <div><label>Y 座標</label><input type="number" id="customY" value="100"></div>
-          </div>
-        </div>
-
-        <label>旋轉角度 <span id="rotationValue">0</span>°</label>
-        <input type="range" id="rotation" min="-45" max="45" value="0">
-
-        <!-- 自定義預設管理 -->
-        <label>自定義樣式預設</label>
-        <div style="display:flex; gap:8px; margin-bottom:8px;">
-          <input type="text" id="presetName" placeholder="預設名稱" style="flex:1;">
-          <button class="btn-primary" id="savePreset">儲存目前設定</button>
-        </div>
-        <div class="preset-list" id="presetList"></div>
-
-        <button class="btn-primary" id="applyBtn">套用水印（預覽）</button>
-        <button class="btn-success" id="downloadBtn">💾 下載圖片</button>
-      </div>
-    </div>
+    <button id="applyBtn">套用水印</button>
+    <button id="downloadBtn">下載</button>
   </div>
 
   <script>
-    // === 核心變數 ===
     let originalImage = null;
     let currentWatermarked = null;
-    let presets = JSON.parse(localStorage.getItem('watermarkPresets')) || [];
+    let presets = JSON.parse(localStorage.getItem('wmPresets')) || [];
 
-    const els = {
-      upload: document.getElementById('upload'),
-      preview: document.getElementById('preview'),
-      text: document.getElementById('text'),
-      size: document.getElementById('size'),
-      sizeValue: document.getElementById('sizeValue'),
-      color: document.getElementById('color'),
-      opacity: document.getElementById('opacity'),
-      opacityValue: document.getElementById('opacityValue'),
-      rotation: document.getElementById('rotation'),
-      rotationValue: document.getElementById('rotationValue'),
-      positionMode: document.getElementById('positionMode'),
-      presetGroup: document.getElementById('presetGroup'),
-      customGroup: document.getElementById('customGroup'),
-      presetPosition: document.getElementById('presetPosition'),
-      customX: document.getElementById('customX'),
-      customY: document.getElementById('customY'),
-      applyBtn: document.getElementById('applyBtn'),
-      downloadBtn: document.getElementById('downloadBtn'),
-      presetName: document.getElementById('presetName'),
-      savePreset: document.getElementById('savePreset'),
-      presetList: document.getElementById('presetList')
-    };
-
-    // 更新顯示
-    els.size.oninput = () => els.sizeValue.textContent = els.size.value;
-    els.opacity.oninput = () => els.opacityValue.textContent = els.opacity.value;
-    els.rotation.oninput = () => els.rotationValue.textContent = els.rotation.value;
-
-    // 位置模式切換
-    els.positionMode.addEventListener('change', () => {
-      els.presetGroup.style.display = els.positionMode.value === 'preset' ? 'block' : 'none';
-      els.customGroup.style.display = els.positionMode.value === 'custom' ? 'block' : 'none';
-    });
-
-    // === 日期按鈕 ===
-    function getDate() {
-      const n = new Date();
-      return {
-        yy: String(n.getFullYear()).slice(2),
-        mm: String(n.getMonth()+1).padStart(2,'0'),
-        dd: String(n.getDate()).padStart(2,'0'),
-        hour: String(n.getHours()).padStart(2,'0')
-      };
-    }
-    document.getElementById('btnYYMMDD').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.mm}${d.dd}`; applyWatermark(); };
-    document.getElementById('btnFullDate').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.mm}${d.dd} ${d.hour}시`; applyWatermark(); };
-    document.getElementById('btnCustom').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.dd}${d.mm} ${d.hour}시`; applyWatermark(); };
-
-    // === 預設管理 ===
-    function savePresets() {
-      localStorage.setItem('watermarkPresets', JSON.stringify(presets));
-      renderPresets();
-    }
+    const upload = document.getElementById('upload');
+    const preview = document.getElementById('preview');
+    const textArea = document.getElementById('text');
+    const presetName = document.getElementById('presetName');
+    const presetList = document.getElementById('presetList');
+    const saveBtn = document.getElementById('savePreset');
+    const applyBtn = document.getElementById('applyBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
 
     function renderPresets() {
-      els.presetList.innerHTML = '';
-      presets.forEach((p, index) => {
+      presetList.innerHTML = '';
+      presets.forEach((p, i) => {
         const div = document.createElement('div');
         div.className = 'preset-item';
         div.innerHTML = `
-          <span style="cursor:pointer;" title="點擊載入">${p.name}</span>
+          ${p.name}
           <div>
-            <button class="preset-btn" data-index="${index}" data-action="load">載入</button>
-            <button class="preset-btn" data-index="${index}" data-action="rename">改名</button>
-            <button class="preset-btn" data-index="${index}" data-action="delete" style="color:red;">刪</button>
+            <button data-i="${i}" class="load">載入</button>
+            <button data-i="${i}" class="rename">改名</button>
+            <button data-i="${i}" class="delete">刪除</button>
           </div>
         `;
-        els.presetList.appendChild(div);
+        presetList.appendChild(div);
       });
     }
 
-    // 載入預設
-    els.presetList.addEventListener('click', (e) => {
-      const btn = e.target;
-      if (!btn.dataset.index) return;
-      const idx = parseInt(btn.dataset.index);
-      const preset = presets[idx];
+    saveBtn.addEventListener('click', () => {
+      const name = presetName.value.trim() || `預設 ${presets.length+1}`;
+      presets.push({
+        name: name,
+        text: textArea.value
+      });
+      localStorage.setItem('wmPresets', JSON.stringify(presets));
+      renderPresets();
+      presetName.value = '';
+    });
 
-      if (btn.dataset.action === 'load') {
-        els.text.value = preset.text;
-        els.size.value = preset.size;
-        els.color.value = preset.color;
-        els.opacity.value = preset.opacity;
-        els.rotation.value = preset.rotation;
-        els.positionMode.value = preset.positionMode;
-        if (preset.positionMode === 'custom') {
-          els.customX.value = preset.customX;
-          els.customY.value = preset.customY;
-        } else {
-          els.presetPosition.value = preset.presetPosition;
-        }
-        els.positionMode.dispatchEvent(new Event('change'));
+    presetList.addEventListener('click', e => {
+      const i = e.target.dataset.i;
+      if (!i) return;
+      const idx = parseInt(i);
+
+      if (e.target.classList.contains('load')) {
+        textArea.value = presets[idx].text;
         applyWatermark();
-      } 
-      else if (btn.dataset.action === 'rename') {
-        const newName = prompt("新名稱：", preset.name);
-        if (newName) {
-          presets[idx].name = newName;
-          savePresets();
-        }
-      } 
-      else if (btn.dataset.action === 'delete') {
-        if (confirm(`確定刪除「${preset.name}」？`)) {
+      } else if (e.target.classList.contains('rename')) {
+        const newName = prompt("新名稱", presets[idx].name);
+        if (newName) presets[idx].name = newName;
+        localStorage.setItem('wmPresets', JSON.stringify(presets));
+        renderPresets();
+      } else if (e.target.classList.contains('delete')) {
+        if (confirm("確定刪除？")) {
           presets.splice(idx, 1);
-          savePresets();
+          localStorage.setItem('wmPresets', JSON.stringify(presets));
+          renderPresets();
         }
       }
     });
 
-    els.savePreset.addEventListener('click', () => {
-      let name = els.presetName.value.trim();
-      if (!name) name = `預設 ${presets.length + 1}`;
-
-      const preset = {
-        name: name,
-        text: els.text.value,
-        size: els.size.value,
-        color: els.color.value,
-        opacity: els.opacity.value,
-        rotation: els.rotation.value,
-        positionMode: els.positionMode.value,
-        presetPosition: els.presetPosition.value,
-        customX: els.customX.value,
-        customY: els.customY.value
-      };
-
-      presets.push(preset);
-      savePresets();
-      els.presetName.value = '';
-      alert('已儲存！');
-    });
-
-    // === 渲染預設 ===
-    renderPresets();
-
-    // === 上傳 + 水印核心 ===
-    els.upload.addEventListener('change', e => {
+    upload.addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = ev => {
-        els.preview.src = ev.target.result;
+        preview.src = ev.target.result;
         originalImage = new Image();
         originalImage.onload = applyWatermark;
         originalImage.src = ev.target.result;
@@ -259,65 +113,31 @@
       canvas.height = originalImage.height;
       ctx.drawImage(originalImage, 0, 0);
 
-      const lines = els.text.value.split('\n').filter(l => l.trim());
-      const fontSize = parseInt(els.size.value);
-      const opacity = parseInt(els.opacity.value)/100;
-      const color = els.color.value;
-      const rotation = parseInt(els.rotation.value);
+      const lines = textArea.value.split('\n');
+      ctx.font = "bold 50px Arial";
+      ctx.fillStyle = "#ffffff";
+      ctx.globalAlpha = 0.8;
 
-      ctx.font = `bold ${fontSize}px Arial`;
-      ctx.fillStyle = color;
-      ctx.globalAlpha = opacity;
-      ctx.textBaseline = 'top';
-
-      const lineHeight = fontSize * 1.3;
-      let startX = 100, startY = 100;
-
-      if (els.positionMode.value === 'preset') {
-        const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
-        const pad = 40;
-        switch(els.presetPosition.value){
-          case 'top-left': startX=pad; startY=pad; break;
-          case 'top-right': startX=canvas.width-maxW-pad; startY=pad; break;
-          case 'bottom-left': startX=pad; startY=canvas.height-pad-lineHeight*(lines.length-1); break;
-          case 'bottom-right': startX=canvas.width-maxW-pad; startY=canvas.height-pad-lineHeight*(lines.length-1); break;
-          case 'center': startX=(canvas.width-maxW)/2; startY=(canvas.height-lineHeight*lines.length)/2; break;
-        }
-      } else {
-        startX = parseFloat(els.customX.value)||100;
-        startY = parseFloat(els.customY.value)||100;
-      }
-
-      lines.forEach((line,i) => {
-        const y = startY + i*lineHeight;
-        if (rotation !== 0) {
-          ctx.save();
-          ctx.translate(startX, y);
-          ctx.rotate(rotation * Math.PI / 180);
-          ctx.fillText(line, 0, 0);
-          ctx.restore();
-        } else {
-          ctx.fillText(line, startX, y);
-        }
+      lines.forEach((line, i) => {
+        ctx.fillText(line, 50, 100 + i*70);
       });
 
-      currentWatermarked = canvas.toDataURL('image/jpeg', 0.92);
-      els.preview.src = currentWatermarked;
+      currentWatermarked = canvas.toDataURL('image/jpeg', 0.9);
+      preview.src = currentWatermarked;
     }
 
-    els.applyBtn.addEventListener('click', applyWatermark);
-    els.downloadBtn.addEventListener('click', () => {
-      if (!currentWatermarked) return alert('請先上傳圖片');
-      const a = document.createElement('a');
-      a.href = currentWatermarked;
-      a.download = 'watermarked.jpg';
-      a.click();
+    applyBtn.addEventListener('click', applyWatermark);
+
+    downloadBtn.addEventListener('click', () => {
+      if (currentWatermarked) {
+        const a = document.createElement('a');
+        a.href = currentWatermarked;
+        a.download = 'watermarked.jpg';
+        a.click();
+      }
     });
 
-    // 即時更新
-    document.querySelectorAll('input, select, textarea').forEach(el => {
-      el.addEventListener('input', () => { if (originalImage) applyWatermark(); });
-    });
+    renderPresets();
   </script>
 </body>
 </html>
