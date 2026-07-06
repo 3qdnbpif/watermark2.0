@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>早買早享受</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans HK', system-ui, sans-serif; }
+        .card { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        .detail-image-container { 
+            position: relative; 
+            max-height: 45vh; 
+            margin-bottom: 32px;
+            padding: 0 16px; /* 兩邊留白 */
+        }
+        #detail-img { 
+            width: 100%; 
+            max-width: 100%; 
+            height: auto; 
+            max-height: 45vh; 
+            object-fit: contain; 
+            border-radius: 1.5rem; 
+            margin: 0 auto; /* 水平置中 */
+            display: block;
+        }
+        
+        .nav-arrow {
+            position: absolute; 
+            top: 50%; 
+            transform: translateY(-50%);
+            width: 42px; 
+            height: 42px;
+            background: rgba(255,255,255,0.85); 
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(229,229,229,0.9); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-radius: 9999px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-size: 22px; 
+            font-weight: bold;
+            z-index: 30;
+            color: #333;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 min-h-screen pb-20">
+
+<header class="bg-white border-b sticky top-0 z-50">
+    <div class="max-w-xl mx-auto px-4 py-4 flex items-center justify-between">
+        <h1 class="text-2xl font-semibold">早買早享受</h1>
+        <div class="flex gap-3">
+            <select id="sort-select" onchange="changeSortOrder()" class="rounded-2xl border px-4 py-2 text-sm">
+                <option value="date-desc">添加日期 ↓</option>
+                <option value="date-asc">添加日期 ↑</option>
+                <option value="notes-asc">備註筆劃 ↑</option>
+            </select>
+            <button onclick="showBackupModal()" class="px-3 py-2 text-stone-600 hover:text-stone-800">
+                <i class="fa-solid fa-download"></i>
+            </button>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-xl mx-auto px-4 pt-6">
+    <div id="tab-all" class="tab-content">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-medium">全部記錄 <span id="all-count" class="bg-stone-200 px-3 py-1 rounded-full text-xs">0</span></h2>
+            <button onclick="showAddModal()" class="bg-[#874FC2] text-white px-6 py-3 rounded-3xl flex items-center gap-2 active:scale-95">
+                <i class="fa-solid fa-plus"></i> 新增記錄
+            </button>
+        </div>
+        <div id="all-grid" class="grid grid-cols-2 gap-4"></div>
+    </div>
+
+    <div id="tab-paid" class="tab-content hidden">
+        <h2 class="text-lg font-medium mb-6 flex items-center gap-2"><span class="text-emerald-600">💸</span> 已付款</h2>
+        <div id="paid-grid" class="grid grid-cols-2 gap-4"></div>
+    </div>
+
+    <div id="tab-shipped" class="tab-content hidden">
+        <h2 class="text-lg font-medium mb-6 flex items-center gap-2"><span class="text-blue-600">📮</span> 已到貨</h2>
+        <div id="shipped-grid" class="grid grid-cols-2 gap-4"></div>
+    </div>
+
+    <div id="tab-home" class="tab-content hidden">
+        <h2 class="text-lg font-medium mb-6 flex items-center gap-2"><span class="text-purple-600">🏠</span> 已返屋企</h2>
+        <div id="home-grid" class="grid grid-cols-2 gap-4"></div>
+    </div>
+</main>
+
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white border-t z-50">
+    <div class="max-w-xl mx-auto grid grid-cols-4 text-xs">
+        <button onclick="switchTab(0)" id="nav-0" class="py-3 flex flex-col items-center text-[#874FC2] border-t-2 border-[#874FC2]">全部</button>
+        <button onclick="switchTab(1)" id="nav-1" class="py-3 flex flex-col items-center text-stone-400">💸 已付</button>
+        <button onclick="switchTab(2)" id="nav-2" class="py-3 flex flex-col items-center text-stone-400">📮 到貨</button>
+        <button onclick="switchTab(3)" id="nav-3" class="py-3 flex flex-col items-center text-stone-400">🏠 返屋企</button>
+    </div>
+</nav>
+
+<!-- Add Modal -->
+<div id="add-modal" class="hidden fixed inset-0 bg-black/70 flex items-end z-[100]">
+    <div class="bg-white w-full max-w-xl mx-auto rounded-t-3xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div class="px-6 py-5 border-b">
+            <h3 id="modal-title" class="text-xl font-semibold">新增記錄</h3>
+        </div>
+        <div class="flex-1 p-6 overflow-auto space-y-8">
+            <div>
+                <label class="block text-sm font-medium text-stone-500 mb-3">商品照片</label>
+                <div id="photo-upload-area" onclick="document.getElementById('photo-input').click()" class="border-2 border-dashed border-stone-300 rounded-3xl h-64 flex flex-col items-center justify-center cursor-pointer hover:border-[#874FC2]">
+                    <i class="fa-solid fa-camera text-4xl text-stone-300 mb-3"></i>
+                    <p class="text-stone-400">點擊上傳或拍照</p>
+                </div>
+                <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)">
+                <div id="photo-preview" class="hidden mt-4 relative">
+                    <img id="preview-img" class="w-full rounded-3xl">
+                    <button onclick="triggerPhotoReupload()" class="absolute bottom-4 left-4 bg-white shadow text-[#874FC2] w-10 h-10 rounded-2xl flex items-center justify-center">✏️</button>
+                    <button onclick="removePhoto()" class="absolute top-4 right-4 bg-red-500 text-white w-8 h-8 rounded-full">×</button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-stone-500 mb-2">備註</label>
+                <textarea id="notes-input" rows="3" class="w-full border rounded-3xl p-4"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-stone-500 mb-3">目前狀態</label>
+                <div id="status-options" class="grid grid-cols-3 gap-3"></div>
+            </div>
+        </div>
+        <div class="p-6 border-t flex gap-3">
+            <button onclick="hideAddModal()" class="flex-1 py-4 border rounded-3xl">取消</button>
+            <button onclick="saveRecord()" id="save-btn" class="flex-1 py-4 bg-[#874FC2] text-white rounded-3xl">保存記錄</button>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div id="detail-modal" class="hidden fixed inset-0 bg-black/70 flex items-end z-[100]">
+    <div class="bg-white w-full max-w-xl mx-auto rounded-t-3xl overflow-hidden">
+        <div class="p-6 relative">
+            <button onclick="hideDetailModal()" class="absolute top-6 right-6 z-40 text-4xl text-stone-400 leading-none w-12 h-12 flex items-center justify-center active:scale-90">×</button>
+            
+            <div class="detail-image-container">
+                <img id="detail-img" class="w-full rounded-3xl">
+                <button onclick="prevRecord()" class="nav-arrow left-4">‹</button>
+                <button onclick="nextRecord()" class="nav-arrow right-4">›</button>
+            </div>
+
+            <div class="mb-6">
+                <div class="text-xs text-stone-400 mb-1">備註</div>
+                <div id="detail-notes" class="text-lg"></div>
+            </div>
+
+            <div>
+                <div class="text-xs text-stone-400 mb-2">狀態</div>
+                <div id="detail-status"></div>
+            </div>
+        </div>
+        
+        <div class="border-t p-6 flex gap-3">
+            <button onclick="editCurrentRecord()" class="flex-1 py-4 border rounded-3xl">編輯</button>
+            <button onclick="deleteCurrentRecord()" class="flex-1 py-4 bg-red-50 text-red-600 rounded-3xl">刪除</button>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Modal -->
+<div id="backup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[200]">
+    <div class="bg-white rounded-3xl max-w-sm w-full mx-4">
+        <div class="p-8">
+            <h3 class="text-2xl font-semibold mb-6">備份與還原</h3>
+            <div class="space-y-4">
+                <button onclick="exportData()" class="w-full py-5 border-2 border-stone-300 hover:border-stone-400 rounded-3xl flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-download"></i> 下載備份 JSON
+                </button>
+                <button onclick="document.getElementById('import-input').click()" class="w-full py-5 bg-[#874FC2] text-white rounded-3xl flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-upload"></i> 上傳備份 JSON
+                </button>
+                <input type="file" id="import-input" accept=".json" class="hidden" onchange="importData(event)">
+            </div>
+        </div>
+        <div class="border-t p-6 text-center">
+            <button onclick="hideBackupModal()" class="text-stone-400">關閉</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 z-[300]">
+    <i class="fa-solid fa-check-circle"></i>
+    <span id="toast-text"></span>
+</div>
+
+<script>
+    let records = [];
+    let currentEditId = null;
+    let currentDetailId = null;
+    let currentPhotoBase64 = null;
+    let currentTab = 0;
+    let detailRecordIds = [];
+    let currentStatus = 'paid';
+
+    const STATUS_OPTIONS = [
+        { key: 'paid', emoji: '💸', label: '已付款' },
+        { key: 'shipped', emoji: '📮', label: '已到貨' },
+        { key: 'home', emoji: '🏠', label: '返咗屋企' }
+    ];
+
+    function loadRecords() {
+        records = JSON.parse(localStorage.getItem('purchaseRecords') || '[]');
+        renderAll();
+    }
+
+            function saveToStorage() {
+        try {
+            const dataStr = JSON.stringify(records);
+            console.log("準備寫入 LocalStorage，大小:", (dataStr.length / 1024).toFixed(1) + "KB");
+
+            localStorage.setItem('purchaseRecords', dataStr);
+
+            // 驗證
+            const saved = localStorage.getItem('purchaseRecords');
+            if (saved && saved.length > 0) {
+                console.log("✅ LocalStorage 寫入成功");
+                return true;
+            } else {
+                console.error("❌ 寫入後讀取失敗");
+                return false;
+            }
+        } catch (err) {
+            console.error("LocalStorage 錯誤:", err.name, err.message);
+            if (err.name === "QuotaExceededError") {
+                alert("儲存空間已滿！請先刪除一些舊紀錄再試");
+            } else {
+                alert("LocalStorage 寫入失敗: " + err.message);
+            }
+            return false;
+        }
+    }
+
+    function renderAll() {
+        // 全部
+        renderGrid('all-grid', records);
+        document.getElementById('all-count').textContent = records.length;
+
+        // 已付款
+        const paid = records.filter(r => r.status === 'paid');
+        renderGrid('paid-grid', paid);
+
+        // 已到貨
+        const shipped = records.filter(r => r.status === 'shipped');
+        renderGrid('shipped-grid', shipped);
+
+        // 已返屋企
+        const home = records.filter(r => r.status === 'home');
+        renderGrid('home-grid', home);
+    }
+
+    function renderGrid(id, data) {
+        const container = document.getElementById(id);
+        container.innerHTML = '';
+        data.forEach(r => {
+            const div = document.createElement('div');
+            div.className = 'card bg-white rounded-3xl overflow-hidden shadow-sm cursor-pointer';
+            div.innerHTML = `<img src="${r.image}" class="w-full aspect-square object-cover"><div class="p-3"><div class="font-medium">${r.notes || '無備註'}</div></div>`;
+            div.onclick = () => showDetail(r.id);
+            container.appendChild(div);
+        });
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.getElementById(['tab-all','tab-paid','tab-shipped','tab-home'][tab]).classList.remove('hidden');
+        
+        // 底部高亮
+        document.querySelectorAll('nav button').forEach((btn, i) => {
+            if (i === tab) {
+                btn.classList.add('text-[#874FC2]', 'border-t-2', 'border-[#874FC2]');
+            } else {
+                btn.classList.remove('text-[#874FC2]', 'border-t-2', 'border-[#874FC2]');
+            }
+        });
+    }
+
+    function showAddModal(editRecord = null) {
+        currentEditId = editRecord ? editRecord.id : null;
+        currentPhotoBase64 = editRecord ? editRecord.image : null;
+        document.getElementById('modal-title').textContent = editRecord ? '編輯記錄' : '新增記錄';
+        document.getElementById('notes-input').value = editRecord ? (editRecord.notes || '') : '';
+
+        if (editRecord && editRecord.image) {
+            document.getElementById('photo-preview').classList.remove('hidden');
+            document.getElementById('photo-upload-area').classList.add('hidden');
+            document.getElementById('preview-img').src = editRecord.image;
+        } else {
+            document.getElementById('photo-preview').classList.add('hidden');
+            document.getElementById('photo-upload-area').classList.remove('hidden');
+        }
+
+        currentStatus = editRecord ? editRecord.status : 'paid';
+        renderStatusOptions();
+        document.getElementById('add-modal').classList.remove('hidden');
+    }
+
+    function hideAddModal() {
+        document.getElementById('add-modal').classList.add('hidden');
+    }
+
+    function renderStatusOptions() {
+        const container = document.getElementById('status-options');
+        container.innerHTML = '';
+        STATUS_OPTIONS.forEach(s => {
+            const btn = document.createElement('button');
+            btn.className = `py-4 rounded-3xl border-2 transition-all ${currentStatus === s.key ? 'border-[#874FC2] bg-[#874FC2]/10' : 'border-transparent hover:bg-stone-100'}`;
+            btn.innerHTML = `<div class="text-4xl">${s.emoji}</div><div class="text-xs mt-1">${s.label}</div>`;
+            btn.onclick = () => { currentStatus = s.key; renderStatusOptions(); };
+            container.appendChild(btn);
+        });
+    }
+
+    function handlePhotoSelect(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            currentPhotoBase64 = ev.target.result;
+            document.getElementById('preview-img').src = currentPhotoBase64;
+            document.getElementById('photo-preview').classList.remove('hidden');
+            document.getElementById('photo-upload-area').classList.add('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removePhoto() {
+        currentPhotoBase64 = null;
+        document.getElementById('photo-preview').classList.add('hidden');
+        document.getElementById('photo-upload-area').classList.remove('hidden');
+    }
+
+    // === 關鍵修復：saveRecord ===
+            function saveRecord() {
+        const notes = document.getElementById('notes-input').value.trim();
+        
+        console.log("=== 保存前檢查 ===");
+        console.log("currentPhotoBase64 存在:", !!currentPhotoBase64);
+        console.log("currentEditId:", currentEditId);
+
+        if (!currentPhotoBase64 && !currentEditId) {
+            alert("請上傳照片！");
+            return;
+        }
+
+        try {
+            if (currentEditId) {
+                const record = records.find(r => r.id === currentEditId);
+                if (record) {
+                    record.notes = notes || "無備註";
+                    if (currentPhotoBase64) record.image = currentPhotoBase64;
+                    record.status = currentStatus;
+                }
+            } else {
+                if (!currentPhotoBase64) {
+                    alert("請上傳照片！");
+                    return;
+                }
+                records.unshift({
+                    id: 'rec_' + Date.now(),
+                    image: currentPhotoBase64,
+                    notes: notes || "無備註",
+                    status: currentStatus,
+                    timestamp: Date.now()
+                });
+            }
+
+            const success = saveToStorage();
+            if (!success) return;
+
+            hideAddModal();
+            
+            // iOS 重要延遲
+            setTimeout(() => {
+                renderAll();
+                showToast("✅ 新增成功！");
+                currentEditId = null;
+                currentPhotoBase64 = null;
+            }, 500);
+
+        } catch (err) {
+            console.error("保存過程異常:", err);
+            alert("保存失敗，請重新上傳照片後再試一次");
+        }
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        document.getElementById('toast-text').textContent = msg;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 2800);
+    }
+
+    function showDetail(id) {
+        const sorted = [...records].sort((a,b) => b.timestamp - a.timestamp);
+        detailRecordIds = sorted.map(r => r.id);
+        currentDetailId = id;
+        
+        const record = records.find(r => r.id === id);
+        document.getElementById('detail-img').src = record.image;
+        document.getElementById('detail-notes').textContent = record.notes;
+        
+        document.getElementById('detail-status').innerHTML = `
+            <div class="inline-flex items-center gap-2 px-5 py-2 rounded-3xl bg-${record.status === 'paid' ? 'emerald' : record.status === 'shipped' ? 'blue' : 'purple'}-100 text-${record.status === 'paid' ? 'emerald' : record.status === 'shipped' ? 'blue' : 'purple'}-700">
+                ${getStatusEmoji(record.status)} ${getStatusLabel(record.status)}
+            </div>
+        `;
+        
+        document.getElementById('detail-modal').classList.remove('hidden');
+    }
+
+    function getStatusEmoji(status) {
+        const found = STATUS_OPTIONS.find(s => s.key === status);
+        return found ? found.emoji : '';
+    }
+
+    function getStatusLabel(status) {
+        const found = STATUS_OPTIONS.find(s => s.key === status);
+        return found ? found.label : '';
+    }
+
+    function hideDetailModal() {
+        document.getElementById('detail-modal').classList.add('hidden');
+    }
+
+    function prevRecord() {
+        const idx = detailRecordIds.indexOf(currentDetailId);
+        if (idx > 0) showDetail(detailRecordIds[idx-1]);
+    }
+
+    function nextRecord() {
+        const idx = detailRecordIds.indexOf(currentDetailId);
+        if (idx < detailRecordIds.length - 1) showDetail(detailRecordIds[idx+1]);
+    }
+
+    function editCurrentRecord() {
+        const record = records.find(r => r.id === currentDetailId);
+        if (record) {
+            hideDetailModal();
+            setTimeout(() => showAddModal(record), 300);
+        }
+    }
+
+    function deleteCurrentRecord() {
+        if (confirm("確定刪除？")) {
+            records = records.filter(r => r.id !== currentDetailId);
+            saveToStorage();
+            hideDetailModal();
+            renderAll();
+        }
+    }
+
+    function changeSortOrder() { renderAll(); }
+
+    function showBackupModal() {
+        document.getElementById('backup-modal').classList.remove('hidden');
+    }
+
+    function hideBackupModal() {
+        document.getElementById('backup-modal').classList.add('hidden');
+    }
+
+    function exportData() {
+        if (records.length === 0) return alert("沒有資料");
+        const str = JSON.stringify(records, null, 2);
+        const uri = 'data:application/json;charset=utf-8,' + encodeURIComponent(str);
+        const a = document.createElement('a');
+        a.href = uri;
+        a.download = `backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        hideBackupModal();
+    }
+
+    function importData(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                records = JSON.parse(ev.target.result);
+                saveToStorage();
+                renderAll();
+                hideBackupModal();
+                showToast("✅ 匯入成功！");
+            } catch(err) { alert("檔案格式錯誤"); }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    }
+
+    window.onload = () => {
+        loadRecords();
+        switchTab(0);
+    };
+</script>
+</body>
+</html>
