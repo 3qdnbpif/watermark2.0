@@ -5,12 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>圖片加水印工具</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; margin:0; padding:20px; background: linear-gradient(135deg, #667eea, #764ba2); color:#333; }
-    .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }
-    header { background: #222; color: white; padding: 20px; text-align: center; }
-    .main { padding: 25px; display: grid; grid-template-columns: 1fr 420px; gap: 25px; }
-    .preview { max-width: 100%; max-height: 550px; border: 3px solid #eee; border-radius: 12px; }
-    .controls { background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
+    * { box-sizing: border-box; }
+    body { 
+      font-family: system-ui, -apple-system, sans-serif; 
+      margin:0; padding:15px; 
+      background: linear-gradient(135deg, #667eea, #764ba2); 
+      color:#333; 
+      min-height: 100vh;
+    }
+    .container { 
+      max-width: 1200px; 
+      margin: 0 auto; 
+      background: white; 
+      border-radius: 16px; 
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
+      overflow: hidden;
+    }
+    header { 
+      background: #222; 
+      color: white; 
+      padding: 20px; 
+      text-align: center; 
+    }
+    .main { 
+      padding: 20px; 
+      display: grid; 
+      grid-template-columns: 1fr 420px; 
+      gap: 25px; 
+    }
+    .preview-area { text-align: center; }
+    .preview { 
+      max-width: 100%; 
+      max-height: 65vh; 
+      border: 3px solid #eee; 
+      border-radius: 12px; 
+    }
+    .controls { 
+      background: #f8f9fa; 
+      padding: 20px; 
+      border-radius: 12px; 
+      border: 1px solid #eee; 
+      height: fit-content;
+    }
     label { display: block; margin: 12px 0 6px; font-weight: 600; }
     input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
     input[type="range"] { width: 100%; }
@@ -18,7 +54,28 @@
     .btn-quick { background: #e0e0e0; color: #333; }
     .btn-save { background: #0066ff; color: white; }
     .preset-btn { background: #28a745; color: white; font-size: 14px; }
-    .align-btn { font-size: 18px; width: 40px; }
+    .align-btn { font-size: 20px; width: 45px; height: 45px; }
+    .danger { background: #dc3545; color: white; }
+
+    /* 響應式布局 */
+    @media (max-width: 768px) {
+      .main { 
+        grid-template-columns: 1fr; 
+        gap: 20px; 
+      }
+      .preview { max-height: 50vh; }
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 10px; }
+      .controls { padding: 15px; }
+      button { padding: 9px 12px; font-size: 14px; }
+    }
+
+    /* 橫屏優化 */
+    @media (orientation: landscape) and (max-width: 900px) {
+      .main { grid-template-columns: 1fr 380px; }
+    }
   </style>
 </head>
 <body>
@@ -26,18 +83,20 @@
     <header><h1>📸 圖片加水印工具</h1></header>
 
     <div class="main">
-      <div>
+      <!-- 左邊預覽區 -->
+      <div class="preview-area">
         <input type="file" id="upload" accept="image/*" style="margin-bottom:15px;">
         <img id="preview" class="preview" src="" alt="預覽圖片">
       </div>
 
+      <!-- 右邊控制區 -->
       <div class="controls">
         <label>水印文字（支援多行）</label>
         <textarea id="text" rows="3"></textarea>
         
         <div style="display:flex; gap:8px;">
           <button id="addToQuick" style="flex:1; background:#0066ff; color:white;">➕ 加到快速輸入</button>
-          <button id="clearText" style="flex:1; background:#dc3545; color:white;">🗑 全部刪除</button>
+          <button id="clearText" class="danger" style="flex:1;">🗑 全部刪除</button>
         </div>
 
         <label>快速輸入文字</label>
@@ -50,9 +109,8 @@
           <button class="btn-quick" id="btnCustom">yyddmm h시</button>
         </div>
 
-        <!-- 新增：對齊方式 -->
         <label>對齊方式</label>
-        <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
           <button id="alignLeft" class="align-btn">↤</button>
           <button id="alignCenter" class="align-btn">↔</button>
           <button id="alignRight" class="align-btn">↦</button>
@@ -100,14 +158,16 @@
         <button class="btn-success" id="downloadBtn" style="width:100%;">💾 下載水印後圖片</button>
       </div>
     </div>
-    <footer>純前端工具</footer>
+    <footer style="text-align:center; padding:15px; color:#666; font-size:14px;">純前端工具 • 支援手機、平板、電腦</footer>
   </div>
 
   <script>
+    // ... (保持之前最新邏輯不變，我只改了 layout)
     let originalImage = null;
     let currentWatermarked = null;
     let customPresets = JSON.parse(localStorage.getItem('customWatermarkPresets')) || [];
     let quickTexts = JSON.parse(localStorage.getItem('quickTexts')) || [];
+    let currentAlign = 'left';
 
     const els = {
       text: document.getElementById('text'),
@@ -123,17 +183,14 @@
       quickTextButtons: document.getElementById('quickTextButtons')
     };
 
-    // 更新數值顯示
     els.size.oninput = () => els.sizeValue.textContent = els.size.value;
     els.opacity.oninput = () => els.opacityValue.textContent = els.opacity.value;
 
-    // 對齊功能
-    let currentAlign = 'left';
+    // 對齊
     document.getElementById('alignLeft').onclick = () => { currentAlign = 'left'; applyWatermark(); };
     document.getElementById('alignCenter').onclick = () => { currentAlign = 'center'; applyWatermark(); };
     document.getElementById('alignRight').onclick = () => { currentAlign = 'right'; applyWatermark(); };
 
-    // 快速文字
     function renderQuickTexts() {
       els.quickTextButtons.innerHTML = '';
       quickTexts.forEach(txt => {
@@ -160,21 +217,15 @@
       }
     });
 
-    // 位置模式
     els.positionMode.addEventListener('change', () => {
       document.getElementById('presetGroup').style.display = els.positionMode.value === 'preset' ? 'block' : 'none';
       document.getElementById('customGroup').style.display = els.positionMode.value === 'custom' ? 'block' : 'none';
     });
 
-    // 儲存只存座標
     document.getElementById('saveCustomPreset').addEventListener('click', () => {
       const name = prompt("預設名稱：", "位置 " + (customPresets.length + 1));
       if (!name) return;
-      customPresets.push({
-        name,
-        x: parseInt(els.customX.value) || 100,
-        y: parseInt(els.customY.value) || 100
-      });
+      customPresets.push({ name, x: parseInt(els.customX.value)||100, y: parseInt(els.customY.value)||100 });
       localStorage.setItem('customWatermarkPresets', JSON.stringify(customPresets));
       renderSavedPresets();
     });
@@ -194,16 +245,15 @@
       });
     }
 
-    // 日期
     function getDate() {
       const n = new Date();
       return { yy: String(n.getFullYear()).slice(2), mm: String(n.getMonth()+1).padStart(2,'0'), dd: String(n.getDate()).padStart(2,'0'), hour: String(n.getHours()).padStart(2,'0') };
     }
+
     document.getElementById('btnYYMMDD').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.mm}${d.dd}`; applyWatermark(); };
     document.getElementById('btnFullDate').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.mm}${d.dd} ${d.hour}시`; applyWatermark(); };
     document.getElementById('btnCustom').onclick = () => { const d=getDate(); els.text.value += `\n${d.yy}${d.dd}${d.mm} ${d.hour}시`; applyWatermark(); };
 
-    // 水印核心
     document.getElementById('upload').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -257,7 +307,6 @@
       }
     });
 
-    // 即時更新
     document.querySelectorAll('input, select, textarea').forEach(el => {
       el.addEventListener('input', () => { if (originalImage) applyWatermark(); });
     });
